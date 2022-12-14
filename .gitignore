@@ -3,3 +3,5 @@ json_exporter.egg-info
 build
 tests
 *.pyc
+/config.yaml
+/.idea

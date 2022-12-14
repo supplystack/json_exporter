@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.4] - 2022-12-14
+### Added
+- Capability to process endpoints returning flat text result instead of json
+- Capability to configure system variables
+- Capability to configure limited time results as transients
+- Capability to cross-reference both system properties and transients in some settings (url, headers and 
+  data payload)
+
+### Changed
+- Updated libraries versions to the latest versions at the time of the update
+- Updated _README_ configuration example with settings matching both __system__ variables and __transients__
+- Updated \_\_init\_\_ to move to version _0.2.4_ as it was still on the initial _1.0.0_, not one of the logged 
+  versions :smiley:
+
 ## [0.2.3] - 2018-11-19
 ### Changed
 - Require prometheus_client < 0.4.0 because of incompatible changes
