@@ -13,8 +13,8 @@ jobs:
     if: github.event_name == 'push'
 
     steps:
+      - uses: actions/checkout@v2
       - name: Build image & push
-        uses: actions/checkout@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
