@@ -1,11 +1,11 @@
 '''
-Setup script for json_exporter
+Setup script for app
 '''
 from setuptools import setup, find_packages
-from json_exporter import __version__
+from app import __version__
 
 setup(
-    name="json_exporter",
+    name="app",
     version=__version__,
     description="export metrics from JSON HTTP(S) API endpoints",
     url="https://catawiki.com",
@@ -43,7 +43,7 @@ setup(
     py_modules=[],
     entry_points={
         'console_scripts': [
-            'json_exporter = json_exporter.main:main'
+            'app = app.main:main'
         ]
     }
 

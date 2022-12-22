@@ -1,0 +1,45 @@
+logging:
+  root:
+    level: DEBUG
+    handlers:
+      - console
+  formatters:
+    brief:
+      format: "%(asctime)s %(levelname)s: %(message)s"
+  handlers:
+    console:
+      class: logging.StreamHandler
+      stream: ext://sys.stdout
+      formatter: brief
+
+targets:
+  - name: auth0
+    url: https://slickss.eu.auth0.com/api/v2/stats/active-users
+    timeout: 1
+    headers:
+      Authorization: Bearer ${transients.token}
+    params:
+      pretty: yes
+    rules:
+      - name: auth0_active_users
+        metric_path: "@.*"
+        metric_type: gauge
+        regex: .*
+        static_labels:
+          mau: total
+    os_dependencies:
+      - client_id
+      - client_secret
+    transients:
+      token:
+        method: POST
+        url: https://slickss.eu.auth0.com/oauth/token
+        headers:
+          content-type: application/json
+        ttl: 10
+        payload:
+          client_id: ${os_dependencies.client_id}
+          client_secret: ${os_dependencies.client_secret}
+          audience: https://slickss.eu.auth0.com/api/v2/
+          grant_type: client_credentials
+        json_response_data: access_token

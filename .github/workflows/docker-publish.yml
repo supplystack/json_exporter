@@ -1,0 +1,26 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Build image & push
+        uses: actions/checkout@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+        run: |
+          docker build . --tag ghcr.io/bitprocessor/json_exporter:latest
+          docker run ghcr.io/bitprocessor/json_exporter:latest
+          docker push ghcr.io/bitprocessor/json_exporter:latest

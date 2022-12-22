@@ -19,22 +19,33 @@ import threading
 import time
 import yaml
 
-from json_exporter import __version__, __default_log_config__, __default_port__
 from prometheus_client import start_http_server, Histogram, Counter
 from prometheus_client.core import UntypedMetricFamily, GaugeMetricFamily, CounterMetricFamily, SummaryMetricFamily, HistogramMetricFamily, REGISTRY
 from string import Template
 from yaml.error import YAMLError
 
-
-DEFAULT_LOG_CONFIG = __default_log_config__
+DEFAULT_LOG_CONFIG = """
+root:
+    level: INFO
+    handlers:
+        - console
+formatters:
+    brief:
+        format: "%(asctime)s %(levelname)s: %(message)s"
+handlers:
+    console:
+        class: logging.StreamHandler
+        stream: ext://sys.stdout
+        formatter: brief
+"""
 INVALID_METRIC_RE = re.compile(r'[^0-9a-zA-Z_:]')
 LISTEN = "0.0.0.0"
 MULTI_UNDERSCORE_RE = re.compile(r'_+')
 NAN = float('NaN')
-PORT = __default_port__
+PORT = 8000
 THREAD_JOIN_TIMEOUT = 1
 TIMEOUT = 5
-VERSION = __version__
+VERSION = '0.2.4'
 
 # Create a metric to track time spent and requests made.
 REQUEST_TIME = Histogram('json_exporter_collector_duration_seconds',
@@ -584,7 +595,7 @@ def main():
     args = parse_args()
     config = load_config(args.config)
     configure_logger(args, config)
-    info('starting json_exporter v{}'.format(VERSION))
+    info('starting app v{}'.format(VERSION))
     info("loaded config")
     debug("config:\n%r", config)
 
