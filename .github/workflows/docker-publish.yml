@@ -14,13 +14,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Build image & push
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build image & push
         run: |
-          docker build . --tag ghcr.io/bitprocessor/json_exporter:latest
-          docker run ghcr.io/bitprocessor/json_exporter:latest
-          docker push ghcr.io/bitprocessor/json_exporter:latest
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          [ "$VERSION" == "master" ] && VERSION=latest
+
+          docker build -t ghcr.io/bitprocessor/json_exporter:$VERSION . 
+          docker push ghcr.io/bitprocessor/json_exporter:$VERSION
+          if [ "$VERSION" != "latest" ] ; then
+            docker tag ghcr.io/bitprocessor/json_exporter:$VERSION ghcr.io/bitprocessor/json_exporter:latest
+            docker push ghcr.io/bitprocessor/json_exporter:latest
+          fi
