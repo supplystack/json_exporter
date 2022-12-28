@@ -22,9 +22,9 @@ jobs:
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           [ "$VERSION" == "master" ] && VERSION=latest
 
-          docker build -t ghcr.io/bitprocessor/json_exporter:$VERSION . 
-          docker push ghcr.io/bitprocessor/json_exporter:$VERSION
+          docker build -t ghcr.io/${{ github.repository }}/json_exporter:$VERSION . 
+          docker push ghcr.io/${{ github.repository }}/json_exporter:$VERSION
           if [ "$VERSION" != "latest" ] ; then
-            docker tag ghcr.io/bitprocessor/json_exporter:$VERSION ghcr.io/bitprocessor/json_exporter:latest
-            docker push ghcr.io/bitprocessor/json_exporter:latest
+            docker tag ghcr.io/${{ github.repository }}/json_exporter:$VERSION ghcr.io/${{ github.repository }}/json_exporter:latest
+            docker push ghcr.io/${{ github.repository }}/json_exporter:latest
           fi
