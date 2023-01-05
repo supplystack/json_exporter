@@ -20,7 +20,8 @@ import time
 import yaml
 
 from prometheus_client import start_http_server, Histogram, Counter
-from prometheus_client.core import UntypedMetricFamily, GaugeMetricFamily, CounterMetricFamily, SummaryMetricFamily, HistogramMetricFamily, REGISTRY
+from prometheus_client.core import UntypedMetricFamily, GaugeMetricFamily, CounterMetricFamily, SummaryMetricFamily, \
+    HistogramMetricFamily, REGISTRY
 from string import Template
 from yaml.error import YAMLError
 
@@ -578,6 +579,7 @@ class JSONCollector(object):
 
 class Notifier(object):
     """Get notified about signals."""
+
     def __init__(self):
         self.terminate = False
         signal.signal(signal.SIGINT, self.handler)
