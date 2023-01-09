@@ -36,7 +36,7 @@ targets:
         url: https://slickss.eu.auth0.com/oauth/token
         headers:
           content-type: application/json
-        ttl: 10
+        ttl: 720
         payload:
           client_id: ${os_dependencies.client_id}
           client_secret: ${os_dependencies.client_secret}
