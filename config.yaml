@@ -43,3 +43,48 @@ targets:
           audience: https://slickss.eu.auth0.com/api/v2/
           grant_type: client_credentials
         json_response_data: access_token
+
+  - name: auth0_total
+    script:
+      module: auth0_processor
+      class: scrape_data
+    timeout: 5
+    params:
+      base_url: https://slickss.eu.auth0.com/api/v2/
+      token: ${transients.token}
+      requests_limit: 5
+
+      # 1 hour - each auth0 request will be valid for this period
+      requests_ttl: 36000
+
+      # 2 years, give or take - a user is considered old when "last_login" surpasses this value
+      old_threshold: 62208000
+
+      # 1 week - a user is considered new when "created_at" subceeds this value
+      new_threshold: 604800
+    rules:
+      - name: auth0_total_users
+        object_path: $.connections[*]
+        metric_path: "@.value"
+        metric_type: gauge
+        regex: connections\.\[(?P<id>.*)\]\.name(.*)\.context(.*)\.(?P<value>[^.]+)
+        dynamic_labels:
+          connection_id: "@.id"
+          connection_name: "@.name"
+          context: "@.context"
+    os_dependencies:
+      - client_id
+      - client_secret
+    transients:
+      token:
+        method: POST
+        url: https://slickss.eu.auth0.com/oauth/token
+        headers:
+          content-type: application/json
+        ttl: 720
+        payload:
+          client_id: ${os_dependencies.client_id}
+          client_secret: ${os_dependencies.client_secret}
+          audience: https://slickss.eu.auth0.com/api/v2/
+          grant_type: client_credentials
+        json_response_data: access_token

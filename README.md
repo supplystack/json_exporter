@@ -84,6 +84,51 @@ targets:
           grant_type: client_credentials
         json_response_data: access_token
 
+  - name: auth0_total
+    script:
+      module: auth0_processor
+      class: scrape_data
+    timeout: 5
+    params:
+      base_url: https://account.auth0.com/api/v2/
+      token: ${transients.token}
+      requests_limit: 5
+
+      # 1 hour - each auth0 request will be valid for this period
+      requests_ttl: 36000
+
+      # 2 years, give or take - a user is considered old when "last_login" surpasses this value
+      old_threshold: 62208000
+
+      # 1 week - a user is considered new when "created_at" subceeds this value
+      new_threshold: 604800
+    rules:
+      - name: auth0_total_users
+        object_path: $.connections[*]
+        metric_path: "@.value"
+        metric_type: gauge
+        regex: connections\.\[(?P<id>.*)\]\.name(.*)\.context(.*)\.(?P<value>[^.]+)
+        dynamic_labels:
+          connection_id: "@.id"
+          connection_name: "@.name"
+          context: "@.context"
+    os_dependencies:
+      - client_id
+      - client_secret
+    transients:
+      token:
+        method: POST
+        url: https://account.auth0.com/oauth/token
+        headers:
+          content-type: application/json
+        ttl: 720
+        payload:
+          client_id: ${os_dependencies.client_id}
+          client_secret: ${os_dependencies.client_secret}
+          audience: https://account.auth0.com/api/v2/
+          grant_type: client_credentials
+        json_response_data: access_token
+
   - name: newrelic
     url: http://localhost:8080/servers.json
     timeout: 2
@@ -112,6 +157,7 @@ targets:
 | `name` | name of the target, used in logging and exporter metrics                                                                                                                                                                                                                   |
 | `method` | HTTP method to use when scraping target, defaults to GET, optional                                                                                                                                                                                                         |
 | `url` | the target url to scrape metrics from                                                                                                                                                                                                                                      |
+| `script` | support for complex processing that cannot be supported as a simple API query - replaces 'url' parameter                                                                                                                                                                   |
 | `timeout` | the timeout to use, defaults to 5 seconds, optional                                                                                                                                                                                                                        |
 | `params` | a mapping with query parameters to add to the url, optional                                                                                                                                                                                                                |
 | `headers` | a mapping with HTTP headers to use when scraping target, optional                                                                                                                                                                                                          |
@@ -134,12 +180,12 @@ targets:
 | `json_response_data` | value in the json response that will be retrieved and used as value when th transient is referred to                                   |
 
 ### Rules
-| item | description |
-|------|-------------|
-| `name` | name of the rule, can contain variables like `$metric` or `${metric}` which are substituted with group matches from the `regex` expression. |
-| `object_path` | a JSONPath expression to select the initial objects from the JSON object, optional |
-| `metric_path` | a JSONPath expression to select the metrics starting from the selected `object_path`, but can be relative (using `@`) or absolute (using `$`), optional |
-| `metric_type` | sets the type of the metric. Possible types are `untyped`, `gauge`, `counter`, `summary` and `histogram`. defaults to `untyped` |
-| `regex` | a regular expression used to extract values ("groups") from a metric_path. These values are inserted in template varaibles into rule names or static labels, optional |
-| `dynamic_labels` | key-value pairs that are added to a metric. The value of this label is determined dynamically with a JSONPath expression and must yield a single string value, optional |
+| item | description                                                                                                                                                                                                                                            |
+|------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `name` | name of the rule, can contain variables like `$metric` or `${metric}` which are substituted with group matches from the `regex` expression.                                                                                                            |
+| `object_path` | a JSONPath expression to select the initial objects from the JSON object, optional                                                                                                                                                                     |
+| `metric_path` | a JSONPath expression to select the metrics starting from the selected `object_path`, but can be relative (using `@`) or absolute (using `$`), optional                                                                                                |
+| `metric_type` | sets the type of the metric. Possible types are `untyped`, `gauge`, `counter`, `summary` and `histogram`. defaults to `untyped`                                                                                                                        |
+| `regex` | a regular expression used to extract values ("groups") from a metric_path. These values are inserted in template variables into rule names or static labels, optional                                                                                  |
+| `dynamic_labels` | key-value pairs that are added to a metric. The value of this label is determined dynamically with a JSONPath expression and must yield a single string value, optional                                                                                |
 | `static_labels` | key-value pairs that are added to a metric. The value of this label is determined by inserting template values (variables must start with a `$` or be enclosed with `${` and `}`). For example using variables like `$metric` or `${metric}`, optional |
