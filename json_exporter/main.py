@@ -46,7 +46,7 @@ NAN = float('NaN')
 PORT = 8080
 THREAD_JOIN_TIMEOUT = 1
 TIMEOUT = 5
-VERSION = '0.2.4'
+VERSION = '0.2.5'
 
 # Create a metric to track time spent and requests made.
 REQUEST_TIME = Histogram('json_exporter_collector_duration_seconds',
@@ -249,13 +249,14 @@ class Target(object):
     """Represent a single target HTTP(S) endpoint to scrape JSON from."""
 
     def __init__(self, name, method, url, ttl, params, headers, body, timeout, ca_bundle, strftime, strftime_utc,
-                 os_dependencies, transients):
+                 os_dependencies, transients, script):
         self.name = name
         self.method = method
         self.url = url
         self.url_ = url
         self.ttl = ttl
         self.params = str_params(params)
+        self.params_ = params.copy()
         self.headers = headers
         self.headers_ = headers.copy()
         self.body = body
@@ -270,6 +271,7 @@ class Target(object):
         self.metric_families = []
         self.os_dependencies = os_dependencies
         self.transients = transients
+        self.script = script
 
     def __str__(self):
         return 'name=%s url=%s params=%r headers=%r timeout=%r' % (self.name,
@@ -284,8 +286,12 @@ class Target(object):
 
     def run(self):
         """Scrape this target."""
-        with REQUEST_TIME.labels(self.name).time():
-            self.scrape()
+        if self.url:
+            with REQUEST_TIME.labels(self.name).time():
+                self.scrape_url()
+        if self.script:
+            with REQUEST_TIME.labels(self.name).time():
+                self.scrape_script()
 
     def get_metric_families(self):
         """Return collected metric families."""
@@ -319,12 +325,22 @@ class Target(object):
                     timeout=self.timeout)
                 transient['value'] = json.loads(response.text)[read_from(transient, 'json_response_data')]
 
+        # if evaluate:
+        #     if self.url:
+        #         self.url = process_replacements(self.url_)
+        #     for h in self.headers:
+        #         self.headers[h] = process_replacements(self.headers_[h])
+        #     for h in self.params:
+        #         self.params[h] = process_replacements(self.params_[h])
         if evaluate:
-            self.url = process_replacements(self.url_, self.os_dependencies, self.transients)
+            if self.url:
+                self.url = process_replacements(self.url_, self.os_dependencies, self.transients)
             for h in self.headers:
                 self.headers[h] = process_replacements(self.headers_[h], self.os_dependencies, self.transients)
+            for h in self.params:
+                self.params[h] = process_replacements(self.params_[h], self.os_dependencies, self.transients)
 
-    def scrape(self):
+    def scrape_url(self):
         """Scrape the target and store metric families"""
         try:
             self.render_expressions()
@@ -368,6 +384,23 @@ class Target(object):
         except requests.RequestException as exc:
             self.error('error in request ({})'.format(exc))
 
+    def scrape_script(self):
+        try:
+            self.render_expressions()
+            mod = __import__(self.script['module'])
+            cla = getattr(mod, self.script['class'])
+            data = cla(self.session, self.params)
+
+            debug('scrape response=%r', data)
+            self.metric_families = []
+            for rule in self.rules:
+                for family in rule.get_metric_families(data):
+                    self.metric_families.append(family)
+        except Exception as e:
+            debug('scrape response=%r', e)
+            self.error('could not decode JSON response')
+            return
+
 
 def str_params(params):
     """Stringify elements in param dict."""
@@ -398,23 +431,24 @@ def read_os_dependencies(source, item, default=None):
 
 def process_replacements(item, os_dependencies=None, transients=None):
     """processor for ${variables} in the configuration file itself, supports ${os_dependencies} and ${transients}"""
-    if transients is None:
-        transients = {}
-    if os_dependencies is None:
-        os_dependencies = {}
-    replacements = re.findall(r'\$\{.*?}', item)
-    for replacement in replacements:
-        processed_replacement = replacement[2:-1]
-        rtype = processed_replacement.split('.')[0]
-        ritem = processed_replacement.split('.')[1]
-        final_value = ''
-        if rtype == 'os_dependencies':
-            final_value = os_dependencies[ritem]
-        if rtype == 'transients':
-            final_value = transients[ritem]['value']
+    if isinstance(item, str):
+        if transients is None:
+            transients = {}
+        if os_dependencies is None:
+            os_dependencies = {}
+        replacements = re.findall(r'\$\{.*?}', item)
+        for replacement in replacements:
+            processed_replacement = replacement[2:-1]
+            rtype = processed_replacement.split('.')[0]
+            ritem = processed_replacement.split('.')[1]
+            final_value = ''
+            if rtype == 'os_dependencies':
+                final_value = os_dependencies[ritem]
+            if rtype == 'transients':
+                final_value = transients[ritem]['value']
 
-        debug('replacing "%s" into "%s"', ritem, item)
-        item = item.replace(replacement, final_value)
+            debug('replacing "%s" into "%s"', ritem, item)
+            item = item.replace(replacement, final_value)
     return item
 
 
@@ -463,14 +497,16 @@ class JSONCollector(object):
         strftime_utc = bool(read_from(target, 'strftime_utc', True))
         os_dependencies = read_os_dependencies(target, 'os_dependencies', {})
         transients = read_transients(target, 'transients', os_dependencies, {})
+        script = read_from(target, 'script')
+
         if not target_name:
             warn('skipping target %d without a name', target_idx + 1)
             return None
-        if not url:
+        if not (url or script):
             warn('skipping target %s without a url', target_name)
             return None
         return Target(target_name, method, url, ttl, params, headers, body, timeout, ca_bundle, strftime,
-                      strftime_utc, os_dependencies, transients)
+                      strftime_utc, os_dependencies, transients, script)
 
     @staticmethod
     def read_rule_config(rule, target_name, rule_idx):
